@@ -21,9 +21,11 @@ For example, consider an academic researcher studying the "impact of social medi
 
 ### Getting Started
 
-Here's how to set up CLIR using Elasticsearch - with the E5 model that is provided out of the box. We’ll use the open-source multilingual COCO dataset, which contains image captions in multiple languages to help us visualize 2 types of searches: 
-- Queries and search terms in other languages on one English dataset, and 
-- Queries in multiple languages on top of a dataset containing documents in multiple languages. 
+Here's how to set up CLIR using Elasticsearch - with the E5 model that is provided out of the box. We’ll use the [open-source multilingual COCO dataset](https://huggingface.co/datasets/romrawinjp/multilingual-coco), which contains image captions in multiple languages to help us visualize 2 types of searches: 
+
+1. Queries and search terms in other languages on one English dataset, and 
+
+2. Queries in multiple languages on top of a dataset containing documents in multiple languages. 
 
 Then, we will leverage the power of hybrid search and reranking to improve the search results even further.
 
@@ -33,7 +35,7 @@ Then, we will leverage the power of hybrid search and reranking to improve the s
 - Elasticsearch Python client: pip install elasticsearch
 
 #### Dataset
-The COCO dataset is a large-scale captioning dataset. Each image in the dataset is captioned in multiple different languages, with several translations available per language. For demonstration purposes, we’ll index each translation as an individual document, along with the first available English translation for reference.
+[The COCO dataset](https://huggingface.co/datasets/romrawinjp/multilingual-coco) is a large-scale captioning dataset. Each image in the dataset is captioned in multiple different languages, with several translations available per language. For demonstration purposes, we’ll index each translation as an individual document, along with the first available English translation for reference.
 
 **Step 1: Download the Multilingual COCO Dataset**
 
