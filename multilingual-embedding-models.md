@@ -189,7 +189,7 @@ The wizard can also auto-populate the processors needed to handle failures while
 Let’s now create the ingest pipeline. I’m naming the pipeline coco_e5. Once the pipeline is created successfully, you can immediately use the pipeline to generate the embeddings by reindexing the original indexed data to a new index in the wizard. Click Reindex to start the process.
 
 
-**For more complex configurations, we can utilize the Elasticsearch API. **
+**For more complex configurations, we can utilize the Elasticsearch API.**
 
 For some models, because of the way the models were trained, we might need to prepend or append certain texts to the actual input before generating the embeddings, otherwise we will see a performance degradation. 
 For example, with the e5, the model expects the input text to follow “passage: {content of passage}”. Let’s utilize the ingest pipelines to accomplish that: We’ll create a new ingest pipeline vectorize_descriptions. In this pipeline, we will create a new temporary temp_desc field, prepend “passage: “ to the description text, run temp_desc  through the model to generate text embeddings, and then delete the temp_desc.
