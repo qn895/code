@@ -175,8 +175,7 @@ eland_import_hub_model --cloud-id $CLOUD_ID --es-api-key $ES_API_KEY --hub-model
 
 Then, navigate to the Trained Models page to deploy the imported model with the desired configurations.
 
-**Step 4: Vectorize or create embeddings for the original data with the deployed model
-**
+**Step 4: Vectorize or create embeddings for the original data with the deployed model**
 
 To create the embeddings, we first need to create an ingest pipeline that will allow us to take the text and run it through the inference text embedding model. You can do this in the Kibana UI or through Elasticsearch’s API.
 
@@ -193,7 +192,8 @@ Let’s now create the ingest pipeline. I’m naming the pipeline coco_e5. Once 
 For some models, because of the way the models were trained, we might need to prepend or append certain texts to the actual input before generating the embeddings, otherwise we will see a performance degradation. 
 For example, with the e5, the model expects the input text to follow “passage: {content of passage}”. Let’s utilize the ingest pipelines to accomplish that: We’ll create a new ingest pipeline vectorize_descriptions. In this pipeline, we will create a new temporary temp_desc field, prepend “passage: “ to the description text, run temp_desc  through the model to generate text embeddings, and then delete the temp_desc.
 
-```
+```json
+
 PUT _ingest/pipeline/vectorize_descriptions
 {
 "description": "Pipeline to run the descriptions text_field through our inference text embedding model",
@@ -221,10 +221,10 @@ PUT _ingest/pipeline/vectorize_descriptions
 ]
 }
 ```
-In addition, we might want to specify what type of quantization we want to use for the generated vector. By default, Elasticsearch uses int8_hnsw, but here I want Better Binary Quantization (or bqq_hnsw) which reduces each dimension to a single bit precision. This reduces the memory footprint by 96% (or 32x) at a larger cost of accuracy. I’m opting for this quantization type because I know I’ll use a reranker later on to improve the accuracy loss. 
+In addition, we might want to specify what type of quantization we want to use for the generated vector. By default, Elasticsearch uses int8_hnsw, but here I want [Better Binary Quantization (or bqq_hnsw)](https://www.elastic.co/search-labs/blog/better-binary-quantization-lucene-elasticsearch) which reduces each dimension to a single bit precision. This reduces the memory footprint by 96% (or 32x) at a larger cost of accuracy. I’m opting for this quantization type because I know I’ll use a reranker later on to improve the accuracy loss. 
 
 To do that, we will create a new index named coco_multi, and specify the mappings. The magic here is in the vector_description field, where we specify the index_options’s type to be bbq_hnsw.
-```
+```json
 PUT coco_multi
 {
  "mappings": {
@@ -257,7 +257,7 @@ PUT coco_multi
 
 
 Now, we can reindex the original documents to a new index, with our ingest pipeline that will “vectorize” or create embeddings for the descriptions field.
-```
+```json
 POST _reindex?wait_for_completion=false
 {
  "source": {
@@ -272,7 +272,8 @@ POST _reindex?wait_for_completion=false
 
 
 Great, after the task is done running, performing the search will give us documents in multiple languages, with the “en” field for us to reference:
-```
+```json
+
  # GET coco_multilingual/_search
     {
        "_index": "coco_multilingual",
@@ -288,7 +289,7 @@ Great, after the task is done running, performing the search will give us docume
      . . .
 ```
 Let’s try now to perform the search in English and see how well it does:
-```
+```json
 GET coco_multi/_search
 {
 "size": 10,
@@ -335,7 +336,7 @@ Results are:
 
 Here, even though the query looks deceptively simple, we are searching for the numerical embeddings of the word ‘kitty’ across all documents in all languages underneath the hood. And because we are performing vector search, we are able to semantically search for all words that might be related to ‘kitty’: “cat”, “kitten”, “feline”, “gatto” (Italian), “mèo” (Vietnamese), 고양이 (Korean), 猫 (Chinese), etc. As a result, even if my query is in English, we can search for content in all other languages too. For example, searching a kitty lying on something gives back documents in Italian, Dutch, or Vietnamese too. Talk about efficiency! 
 
-```
+```json
 GET coco_multi/_search
 {  
  "size": 100,
@@ -356,7 +357,7 @@ GET coco_multi/_search
 }
 ```
 Would give us:
-```
+```json
 {
  "description": "A black kitten lays on her side beside remote controls.",
  "en": "A black kitten lays on her side beside remote controls.",
@@ -381,7 +382,8 @@ Would give us:
 ```
 
 Similarly, performing keyword search for “cat” in Korean (“고양이”), will also give back meaningful results. What’s spectacular here is that we don’t even have any documents in Korean in this index!
-```
+```json
+
 GET coco_multi/_search
 {
  "size": 100,
@@ -402,7 +404,7 @@ GET coco_multi/_search
 }
 ```
 
-```
+```json
      {
        {
          "description": "eine Katze legt sich auf ein ausgestopftes Tier",
@@ -426,7 +428,7 @@ This works because the embedding model represents meaning in a shared semantic s
 We are happy that the relevant results showed up as expected. But, in the real world, say in ecommerce or in RAG applications that need to narrow down to the top 5-10 most applicable results, we can use a rerank model to prioritize the most relevant results. 
 Here, performing a query that asks “what color is the cat?” in Vietnamese will yield a lot of results, but the top 1 or 2 might not be the most relevant. 
 
-```
+```json
 GET coco_multi/_search
 {
  "size": 20,
@@ -449,7 +451,7 @@ GET coco_multi/_search
 }
 ```
 The results all mention cat, or some form of color in the sentence. For example, the `orange couch`.
-```
+```json
 {
         "_index": "coco_multi",
         "_id": "4giXQJYBgf6odR9b3Iu8",
@@ -473,7 +475,8 @@ The results all mention cat, or some form of color in the sentence. For example,
 ```
 But we want to know what color is the cat, so let’s improve that!  Let’s integrate [Cohere](https://cohere.com/blog/rerank-3pt5)’s multilingual rerank model to improve the reasoning corresponding to our question.
 
-```
+```json
+
 PUT _inference/rerank/cohere_rerank
 {
  "service": "cohere",
@@ -488,7 +491,7 @@ PUT _inference/rerank/cohere_rerank
 }
 ```
 
-```
+```json
 GET coco_multi/_search
 {
 "size": 10,
@@ -527,7 +530,7 @@ GET coco_multi/_search
 }
 }
 ```
-```
+```json
      {
        "_index": "coco_multi",
        "_id": "rQiYQJYBgf6odR9bBYyH",
